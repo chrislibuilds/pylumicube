@@ -1,0 +1,53 @@
+[project]
+name = "pylumicube"
+version = "0.1.1"
+description = "Pure-Python driver for the Abstract Foundry LumiCube. Talks the reverse-engineered wire protocol directly over /dev/ttyAMA0 — no Java daemon required."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "chris", email = "chrislibuilds@pyli.org" },
+]
+keywords = ["lumicube", "raspberry-pi", "uavcan", "uart", "serial", "led", "hardware"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Hardware",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: Communications",
+]
+dependencies = [
+    "pyserial>=3.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+]
+
+[project.scripts]
+lumicube-leds = "pylumicube.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/chrislibuilds/pylumicube"
+Repository = "https://github.com/chrislibuilds/pylumicube"
+Issues = "https://github.com/chrislibuilds/pylumicube/issues"
+Changelog = "https://github.com/chrislibuilds/pylumicube/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

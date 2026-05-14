@@ -1,0 +1,37 @@
+# Local-only project notes (never committed)
+CLAUDE.md
+TODO.md
+
+# Reference data and runtime captures (not part of the published package)
+ref_data/
+serial_logs/
+
+# Python build/install artefacts
+__pycache__/
+*.py[oc]
+*.egg-info/
+build/
+dist/
+wheels/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+.pypirc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Lock files (uv) — uncomment if you don't want to commit
+# uv.lock
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
