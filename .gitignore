@@ -1,5 +1,6 @@
 # Local-only project notes (never committed)
 CLAUDE.md
+.claude/
 TODO.md
 
 # Reference data and runtime captures (not part of the published package)

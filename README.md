@@ -61,12 +61,16 @@ pip install pylumicube
 From source — with [`uv`](https://github.com/astral-sh/uv):
 
 ```bash
+git clone https://github.com/chrislibuilds/pylumicube.git
+cd pylumicube
 uv sync
 ```
 
 Or with pip in any 3.11+ venv:
 
 ```bash
+git clone https://github.com/chrislibuilds/pylumicube.git
+cd pylumicube
 pip install -e .
 ```
 

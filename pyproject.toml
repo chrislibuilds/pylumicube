@@ -1,6 +1,6 @@
 [project]
 name = "pylumicube"
-version = "0.1.1"
+version = "0.1.2"
 description = "Pure-Python driver for the Abstract Foundry LumiCube. Talks the reverse-engineered wire protocol directly over /dev/ttyAMA0 — no Java daemon required."
 readme = "README.md"
 requires-python = ">=3.11"
