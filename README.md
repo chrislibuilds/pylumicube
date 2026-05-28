@@ -25,28 +25,31 @@ end-to-end on real hardware** (verified 2026-05-10).
   across 3 frames. Exposed as the `lumicube-leds` CLI and the
   `LumiCube.display` API.
 - **Schema discovery.** `ENUMERATE_FIELDS` walker
-  (`scripts/snapshot_hardware.py`) that decodes the cube's in-line
+  (`utilities/snapshot_hardware.py`) that decodes the cube's in-line
   sub-dicts and resolves block floors via probing + binary search.
   Wire semantics in [`PROTOCOL.md`](./PROTOCOL.md) §4.5.1.
+- **Upstream-script compat shim.** `pylumicube.compat` recreates the
+  foundry-daemon globals (`cube`, `display`, `hsv_colour`,
+  `noise_*`, colour constants, etc.). `lumicube-run script.py`
+  exec's a community script in that namespace — display-only scripts
+  (rainbow, rain, binary_clock, conways_game_of_life, autumn_scene,
+  land_grab, lava_lamp, ripples, scrolling_clock) run unchanged.
+  Sensor/audio/screen modules are warn+no-op stubs until they land.
 
 ### Todo (roughly ascending complexity)
 
-1. **Run upstream Python scripts** against pylumicube — e.g.
-   [`digital_clock_v1.py`](https://github.com/abstractfoundry/lumicube/blob/main/community-scripts/digital_clock_v1.py).
-   Provide a compat shim mirroring the abstractfoundry client API so
-   existing community scripts work unchanged.
-2. **Microphone input.** Implement the `SUBSCRIBE_DEFAULT_FIELDS` +
+1. **Microphone input.** Implement the `SUBSCRIBE_DEFAULT_FIELDS` +
    `PUBLISHED_FIELDS` telemetry plumbing first, then expose the
    `microphone.data` stream.
-3. **Light sensor.** Colour, proximity, and gesture readings from the
-   `button_and_light_sensor` board (telemetry-driven, builds on item 2).
-4. **Secondary LCD screen.** Drive the `screen` module on the cube
+2. **Light sensor.** Colour, proximity, and gesture readings from the
+   `button_and_light_sensor` board (telemetry-driven, builds on item 1).
+3. **Secondary LCD screen.** Drive the `screen` module on the cube
    node. Also forces the move from a hardcoded display schema to
    runtime `ENUMERATE_FIELDS` + direct-probe discovery (see
    [`PROTOCOL.md`](./PROTOCOL.md) §5.1).
-5. **FastAPI daemon.** Replace the Java `foundry-daemon` with a
+4. **FastAPI daemon.** Replace the Java `foundry-daemon` with a
    Python REST API (Swagger-documented), shipped as a systemd unit.
-6. **Web frontend** for the daemon.
+5. **Web frontend** for the daemon.
 
 Protocol-side open questions tracked in [`PROTOCOL.md`](./PROTOCOL.md) §7.
 
@@ -74,13 +77,15 @@ cd pylumicube
 pip install -e .
 ```
 
-The only runtime dependency is `pyserial`.
+Runtime dependencies: `pyserial` and `opensimplex` (the latter only used
+by `compat.noise_2d/3d/4d` — opt out by stubbing if you don't need it).
 
 ## CLI
 
-The entry point is `lumicube-leds` (equivalent to `python -m pylumicube.cli`).
-The Java `foundry-daemon` must not be running — it holds `/dev/ttyAMA0`
-exclusively.
+Two entry points ship with the package; the Java `foundry-daemon` must
+not be running for either — it holds `/dev/ttyAMA0` exclusively.
+
+### `lumicube-leds` — direct LED control
 
 ```bash
 # Set every LED to red
@@ -96,6 +101,27 @@ lumicube-leds off
 lumicube-leds --port /dev/ttyAMA0 --debug all 0000FF
 ```
 
+### `lumicube-run` — run a community script
+
+Recreates the foundry-daemon's pre-populated globals (`cube`, `display`,
+`hsv_colour`, colour constants, `noise_2d/3d/4d`, `time`/`math`/`random`,
+etc.) and `exec`s the given script in that namespace, so upstream
+[community scripts](https://github.com/abstractfoundry/lumicube/tree/main/community-scripts)
+work unchanged.
+
+```bash
+# Run a display-only script (display + hsv_colour are hardware-backed).
+lumicube-run scripts/rainbow.py
+lumicube-run scripts/binary_clock.py
+lumicube-run scripts/lava_lamp.py
+```
+
+Sensor / audio / screen modules (`microphone`, `speaker`, `screen`,
+`buttons`, `light_sensor`, `imu`, `env_sensor`, `pi`) are warn-and-no-op
+stubs for now — scripts that only poke the LED matrix run end to end;
+scripts that read sensors or play sounds will print a one-time warning
+per attribute and silently skip those calls.
+
 ## Library
 
 ```python
@@ -104,6 +130,24 @@ from pylumicube import LumiCube
 with LumiCube('/dev/ttyAMA0') as cube:
     cube.display.fill(0x00FF00)
     cube.display.set_leds({0: 0xFF0000, 1: 0xFFFFFF, 2: 0x000000})
+```
+
+Or with the compat shim (matching the upstream daemon's script API):
+
+```python
+from pylumicube import LumiCube
+from pylumicube.compat import run_script
+
+# Open the cube and run a community script against the compat namespace.
+run_script('scripts/binary_clock.py')
+
+# Or drive things yourself using upstream-style helpers.
+with LumiCube() as cube:
+    from pylumicube.compat import build_globals
+    ns = build_globals(cube)
+    display = ns['display']
+    display.set_led(0, 0, ns['red'])
+    display.scroll_text('Hello', ns['cyan'])
 ```
 
 ## Testing
@@ -132,18 +176,28 @@ src/pylumicube/
     allocator.py         # 3-stage dynamic node-ID allocator
     node.py              # LumiCube top-level API
     display.py           # Display module helpers
-    cli.py               # CLI tool
+    cli.py               # lumicube-leds CLI
+    compat/
+        runtime.py       # upstream-API shim: DisplayShim, stubs, build_globals, run_script
+        font.py          # 5x7 ASCII bitmap font for scroll_text
+        cli.py           # lumicube-run CLI
 
 tests/                   # offline pytest suite
-scripts/                 # on-device debug + bring-up helpers
+scripts/                 # upstream LumiCube community/user scripts (run via lumicube-run)
+utilities/               # on-device debug + bring-up helpers
 PROTOCOL.md              # canonical protocol spec
 CHANGELOG.md             # versioned change history
 LICENSE                  # GPL-3.0
 ```
 
-## Scripts
+## Scripts and utilities
 
-Helper utilities under `scripts/` (require a connected cube):
+`scripts/` contains upstream LumiCube community / user scripts (e.g.
+`rainbow.py`, `binary_clock.py`, `lava_lamp.py`). Run them with
+`lumicube-run <script.py>` — see the CLI section above.
+
+`utilities/` contains helper tools used during bring-up and reverse-
+engineering (require a connected cube):
 
 - `snapshot_hardware.py` — walk every node's `ENUMERATE_FIELDS` schema
   and print one row per field. Useful as a reference dump.
