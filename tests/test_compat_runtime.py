@@ -12,11 +12,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pylumicube.compat import build_globals
+from pylumicube.compat import build_globals, get_hosted_cube, open_or_use_hosted
 from pylumicube.compat.runtime import (
     DisplayShim,
     LumiCubeCompat,
     StubModule,
+    _set_hosted_cube,
     hsv_colour,
     random_colour,
 )
@@ -229,3 +230,59 @@ def test_scroll_text_emits_frames_and_clears() -> None:
     shim, fake = _make_shim()
     shim.scroll_text("A", speed=1000)  # speed=1000 → near-zero sleep
     assert fake.set_leds.call_count > 0
+
+
+# ---- Hosted-cube registry ----------------------------------------------
+
+
+def test_get_hosted_cube_is_none_by_default() -> None:
+    _set_hosted_cube(None)
+    assert get_hosted_cube() is None
+
+
+def test_set_hosted_cube_round_trip() -> None:
+    fake_cube = MagicMock()
+    _set_hosted_cube(fake_cube)
+    try:
+        assert get_hosted_cube() is fake_cube
+    finally:
+        _set_hosted_cube(None)
+    assert get_hosted_cube() is None
+
+
+def test_open_or_use_hosted_yields_hosted_cube_without_opening_serial() -> None:
+    """When a hosted cube is registered, the helper must yield it and
+    NOT instantiate `LumiCube(...)` — that would try to open a serial port."""
+    fake_cube = MagicMock()
+    _set_hosted_cube(fake_cube)
+    try:
+        with open_or_use_hosted("/dev/does-not-exist") as cube:
+            assert cube is fake_cube
+    finally:
+        _set_hosted_cube(None)
+    # The fake cube must not have been touched as a context manager —
+    # ownership stays with lumicube-run.
+    fake_cube.__enter__.assert_not_called()
+    fake_cube.__exit__.assert_not_called()
+
+
+def test_open_or_use_hosted_opens_fresh_lumicube_when_unhosted(monkeypatch) -> None:
+    """Without a hosted cube the helper must defer to `LumiCube(port)`."""
+    _set_hosted_cube(None)
+
+    opened: list[str] = []
+
+    class FakeCube:
+        def __init__(self, port: str, **_) -> None:
+            opened.append(port)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr("pylumicube.compat.runtime.LumiCube", FakeCube)
+    with open_or_use_hosted("/dev/test") as cube:
+        assert isinstance(cube, FakeCube)
+    assert opened == ["/dev/test"]

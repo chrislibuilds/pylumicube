@@ -1,0 +1,54 @@
+"""Configuration for scripts/digital_clock.py.
+
+Copy this file to ``digital_clock_config.py`` (in the same directory) and
+edit it with your own values. The real ``digital_clock_config.py`` is
+listed in the project's ``.gitignore`` so your API key never lands in
+version control.
+
+The clock runs without any config file too — it just falls back to the
+defaults below and disables the weather feature (since the API key is
+empty).
+"""
+
+# ---- Weather (optional) --------------------------------------------------
+# Get a free API key at https://openweathermap.org/api. Leave empty to
+# disable the weather feature entirely.
+OPENWEATHERMAP_API_KEY: str = ""
+
+# City ID from openweathermap.org — search your city on the website and
+# copy the numeric ID from the URL bar.
+OPENWEATHERMAP_CITY_ID: str = "2858738"
+
+# How often to re-fetch the temperature, in seconds.
+WEATHER_REFRESH_SECONDS: int = 600
+
+# How long to show the temperature on the top panel at the start of each
+# minute (the seconds animation takes over for the rest of the minute).
+WEATHER_SHOW_SECONDS: int = 5
+
+# ---- Clock face ---------------------------------------------------------
+USE_24_HOUR_CLOCK: bool = True
+
+# If False, write the seconds digits on the top panel using the same big
+# font as hours/minutes. If True, fill 8x8 cells with a randomised dot
+# pattern that grows from 0 to 64 over the minute.
+USE_RANDOM_DOTS_FOR_SECONDS: bool = True
+
+# ---- Colours ------------------------------------------------------------
+# Hues / saturations are in 0..1. Pure red is hue=0, pure green hue=1/3,
+# pure blue hue=2/3. Saturation=0 yields white/greys.
+USE_RANDOM_HOUR_COLORS: bool = True
+USE_RANDOM_MINUTE_COLORS: bool = True
+
+HOUR_COLOR_HUE: float = 0.8
+HOUR_COLOR_SATURATION: float = 1.0
+MINUTE_COLOR_HUE: float = 0.0
+MINUTE_COLOR_SATURATION: float = 0.0
+SECOND_COLOR_HUE: float = 0.6
+SECOND_COLOR_SATURATION: float = 0.8
+
+# Global brightness, 0..1.
+BRIGHTNESS: float = 0.7
+
+# Frame interval in seconds (1/20 = 20 fps).
+REFRESH_RATE: float = 1 / 20

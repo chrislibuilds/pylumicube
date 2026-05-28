@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `scripts/digital_clock.py` — native-API example script (does not use
+  the compat shim). Renders hours, minutes, and a filling-dot seconds
+  animation, with an optional OpenWeatherMap temperature overlay.
+  Configurable via `scripts/digital_clock_config.py`; a template is
+  checked in as `scripts/digital_clock_config.py.example`.
+- `[extras]` optional-dependencies group in `pyproject.toml`:
+  `requests` for the digital-clock weather fetch. Install via
+  `pip install -e '.[extras]'` or `uv sync --extra extras`.
+- `.gitignore` rule for `scripts/digital_clock_config.py` so per-user
+  API keys never reach version control.
+- `pylumicube.compat.get_hosted_cube()` and `open_or_use_hosted(port)`
+  helpers — let native-API scripts run both standalone (`python my.py`)
+  *and* under `lumicube-run my.py`. The runner registers its open cube
+  before exec'ing the script; `open_or_use_hosted` yields that cube
+  when registered, or opens a fresh `LumiCube(port)` otherwise.
+  `scripts/digital_clock.py` uses this pattern.
+
 ## [0.1.3] - 2026-05-28
 
 ### Added

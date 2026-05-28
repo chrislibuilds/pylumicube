@@ -15,6 +15,18 @@ Entry points:
         run_script('scripts/binary_clock.py', cube=cube)
 """
 
-from .runtime import LumiCubeCompat, build_globals, run_script
+from .runtime import (
+    LumiCubeCompat,
+    build_globals,
+    get_hosted_cube,
+    open_or_use_hosted,
+    run_script,
+)
 
-__all__ = ["LumiCubeCompat", "build_globals", "run_script"]
+__all__ = [
+    "LumiCubeCompat",
+    "build_globals",
+    "get_hosted_cube",
+    "open_or_use_hosted",
+    "run_script",
+]

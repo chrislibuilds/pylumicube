@@ -9,6 +9,7 @@ The coordinate mappings and method signatures below are pinned to
 from __future__ import annotations
 
 import concurrent.futures as _cf
+import contextlib
 import logging
 import math
 import random
@@ -17,7 +18,7 @@ import threading
 import time
 import warnings
 from colorsys import hsv_to_rgb
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterator, Mapping
 
 from ..constants import SERIAL_DEVICE
 from ..display import NUM_LEDS, Display
@@ -41,6 +42,67 @@ BLUE = 0x0000FF
 MAGENTA = 0xFF00FF
 PINK = 0xFF007F
 PURPLE = 0x800080
+
+
+# ----- hosted-cube registry ----------------------------------------------
+#
+# Native-API scripts (e.g. `scripts/digital_clock.py`) normally open
+# their own serial port with `LumiCube(...)`. When the same script is
+# launched via the `lumicube-run` runner, the runner has *already*
+# opened the cube and a second open would fail with `Resource busy`.
+#
+# `lumicube-run` registers its opened cube here before exec'ing the
+# script; scripts that opt into dual-mode usage check `get_hosted_cube()`
+# (or, better, use the `open_or_use_hosted()` context manager) instead of
+# instantiating `LumiCube` unconditionally.
+
+_hosted_cube: LumiCube | None = None
+_hosted_lock = threading.Lock()
+
+
+def get_hosted_cube() -> LumiCube | None:
+    """Return the LumiCube opened by `lumicube-run`, if running under it.
+
+    Returns ``None`` for a standalone Python invocation. Scripts wanting
+    to work under both should call this (or `open_or_use_hosted`) rather
+    than constructing `LumiCube()` directly.
+    """
+    return _hosted_cube
+
+
+def _set_hosted_cube(cube: LumiCube | None) -> None:
+    """Internal: install the LumiCube the runner has opened, or clear it.
+
+    Not part of the public API — `lumicube-run` calls this around its
+    `exec()` block.
+    """
+    global _hosted_cube
+    with _hosted_lock:
+        _hosted_cube = cube
+
+
+@contextlib.contextmanager
+def open_or_use_hosted(port: str = SERIAL_DEVICE) -> Iterator[LumiCube]:
+    """Yield a started ``LumiCube``, owning it iff we opened it.
+
+    Usage in a native-API script:
+
+        from pylumicube.compat import open_or_use_hosted
+
+        with open_or_use_hosted(args.port) as cube:
+            cube.display.fill(0xFF0000)
+
+    When called under `lumicube-run`, this yields the runner's cube
+    unchanged and does not close it on exit. Otherwise it opens a fresh
+    ``LumiCube(port)`` and tears it down on exit, just like the bare
+    `with LumiCube(port) as cube:` form.
+    """
+    hosted = get_hosted_cube()
+    if hosted is not None:
+        yield hosted
+        return
+    with LumiCube(port) as cube:
+        yield cube
 
 
 # ----- helpers (verbatim semantics from upstream standard_library.py) -----

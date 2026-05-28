@@ -15,7 +15,7 @@ import sys
 
 from ..constants import SERIAL_DEVICE
 from ..node import LumiCube
-from .runtime import build_globals
+from .runtime import _set_hosted_cube, build_globals
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,6 +65,11 @@ def main(argv: list[str] | None = None) -> int:
             if script_dir not in sys.path:
                 sys.path.insert(0, script_dir)
 
+            # Register the open cube so native-API scripts can pick it up
+            # via `pylumicube.compat.open_or_use_hosted()` instead of
+            # opening a second serial connection (which would fail with
+            # "Resource busy").
+            _set_hosted_cube(cube)
             try:
                 exec(code, ns)
             except KeyboardInterrupt:
@@ -72,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
                 # intended exit. Don't treat it as a failure.
                 print("\ninterrupted", file=sys.stderr)
             finally:
+                _set_hosted_cube(None)
                 if not args.no_clear:
                     try:
                         cube.display.fill(0x000000)
