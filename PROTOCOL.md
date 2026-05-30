@@ -803,6 +803,16 @@ real photons on the panel).
    metadata-order priority. Worth confirming by sending SET_FIELDS at
    a contested key (e.g. 280) and observing which peripheral
    actually changes state.
+6. **SET_FIELDS concurrency limit.** The cube firmware appears to
+   service exactly one SET_FIELDS request at a time. Issuing two or
+   three concurrently (distinct transferIds, all in flight) leaves the
+   second/third without a ServiceResponse — the requester times out.
+   Pipelining `_send_set_fields` therefore failed on hardware and was
+   reverted to strict per-batch round-trips. The Java daemon also
+   serialises SET_FIELDS. Open question: does this hold for *other*
+   service types, and is the limit firmware-wide (one outstanding
+   per-peripheral?) or per-type? Worth probing with a mixed
+   SET_FIELDS + GET_FIELDS burst.
 
 A realistic capture path: stop the Java daemon (`systemctl --user stop
 foundry-daemon.service`; if the user systemd manager isn't reachable in

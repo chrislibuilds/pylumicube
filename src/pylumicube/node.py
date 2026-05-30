@@ -51,6 +51,10 @@ class LumiCube:
         self._allocated: dict[int, uuid.UUID | None] = {}  # node_id -> uuid (None = passively observed)
         self._names: dict[int, str] = {}              # node_id -> preferred name
         self._display_node_id: int | None = None
+        # Cached Display instance — created on first `.display` access.
+        # Held for the lifetime of the LumiCube so its async worker
+        # thread and pending-write state persist across calls.
+        self._display_instance: Display | None = None
 
     # ---------------- lifecycle ----------------
 
@@ -78,6 +82,14 @@ class LumiCube:
         self._display_node_id = self._pick_display_node()
 
     def stop(self) -> None:
+        # Drain pending async display writes before closing the wire so
+        # the last frame the script asked for actually lands.
+        if self._display_instance is not None:
+            try:
+                self._display_instance.close()
+            except Exception:  # noqa: BLE001
+                log.exception("error closing display")
+            self._display_instance = None
         if self._link is not None:
             self._link.stop()
             self._link = None
@@ -112,7 +124,9 @@ class LumiCube:
                 f"allocated nodes: {self._allocated}, names: {self._names}"
             )
         assert self._transport is not None
-        return Display(self._transport, self._display_node_id)
+        if self._display_instance is None:
+            self._display_instance = Display(self._transport, self._display_node_id)
+        return self._display_instance
 
     # ---------------- discovery ----------------
 

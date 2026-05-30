@@ -7,7 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+- `Display.set_leds` / `fill` / `show` / `set_brightness` are now async
+  by default (new `await_ack: bool = False` keyword). The wire I/O runs
+  on a single background worker thread, so a frame loop can compute
+  frame N+1 while frame N is still being pushed. At most one frame is
+  in flight at a time (firmware constraint); subsequent async calls
+  block on the previous one for natural backpressure. Sync semantics
+  remain available via `await_ack=True`. New `Display.flush(timeout)`
+  drains the queue on demand; `LumiCube.stop()` drains it before
+  closing the wire. Mirrors how the Java daemon's
+  `_Display.set_leds → run_async(self.set, ...)` decouples script
+  compute from wire transmission.
+- `LumiCube.display` is now cached for the LumiCube's lifetime (it used
+  to return a fresh `Display` per access). Required so the async
+  worker thread and pending-write state survive across calls.
+- `flat_dictionary.SizeTracker` — incremental encoded-size calculator
+  used by `display._batch_for_frame`. Replaces the previous O(n²) split
+  algorithm (which re-serialised the candidate batch on every key) with
+  an O(n) one. ~22× faster on a 192-LED frame in microbench; reduces
+  per-frame Python CPU dramatically on the Pi.
+
+### Wire-protocol findings (vs. the Java daemon)
+- The cube firmware does **not** service concurrent SET_FIELDS service
+  requests — submitting two or three in flight at once causes all but
+  the first to be dropped (no ServiceResponse, so the caller times out).
+  An attempted pipelining of `_send_set_fields` was reverted; the Java
+  daemon also issues SET_FIELDS strictly sequentially. Sequential
+  semantics are now pinned by a unit test.
+
 ### Added
+- `scripts/lava_lamp.py` — native-API rewrite of the upstream community
+  script. Precomputes the 192 surface coordinates and their LED indices
+  at startup, replaces the per-pixel `colorsys.hsv_to_rgb` with a
+  vectorised numpy packer, and benefits from the new async display so
+  noise computation overlaps the previous frame's wire push.
 - `scripts/digital_clock.py` — native-API example script (does not use
   the compat shim). Renders hours, minutes, and a filling-dot seconds
   animation, with an optional OpenWeatherMap temperature overlay.

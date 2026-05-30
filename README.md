@@ -243,6 +243,26 @@ with LumiCube('/dev/ttyAMA0') as cube:
     cube.display.set_brightness(128)                     # 0..255
 ```
 
+**Async by default.** `set_leds`, `fill`, `show`, and `set_brightness`
+return immediately and push the write on a background thread, so a
+frame loop can compute frame N+1 while frame N is still being pushed
+over the wire. At most one frame is in flight (cube firmware constraint)
+— the next async call blocks until the previous one is ACK'd, so a
+script that calls `fill` faster than the wire can drain gets natural
+backpressure. The cube is drained automatically on `cube.__exit__`.
+
+If you want the old "block until ACK" behaviour for a particular write
+(e.g. one-shot CLI scripts that need to know the write committed before
+exiting, or to surface errors at the call site), pass `await_ack=True`:
+
+```python
+from pylumicube import LumiCube
+
+with LumiCube() as cube:
+    cube.display.fill(0xFF0000, await_ack=True)   # blocks; raises on error
+    cube.display.flush(timeout=1.0)               # or: drain any async writes
+```
+
 ### Compat-shim API (upstream-style)
 
 ```python

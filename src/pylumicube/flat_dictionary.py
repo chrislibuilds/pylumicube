@@ -104,6 +104,78 @@ def serialise(values: Mapping[int, int | bytes], specs: Mapping[int, FieldSpec])
     return bytes(buf)
 
 
+class SizeTracker:
+    """Incrementally track the encoded size of a FlatDictionary.
+
+    Mirrors the byte-counting half of `serialise` so that batching code
+    can decide where to split a large `{key: value}` payload without
+    re-serialising on every candidate key (which was O(n²)).
+
+    Keys must be `commit`'d in strictly ascending order. The size
+    reported includes skip + run commands and value bytes, and matches
+    `len(serialise({k0, k1, ...}, specs))` exactly.
+
+    Two-step API:
+
+      cost = tracker.cost_delta(key, spec)
+      if tracker.size + cost > BUDGET:
+          flush current batch, start a new tracker
+      else:
+          tracker.commit(key, spec)
+    """
+
+    __slots__ = ("_size", "_key_acc", "_last_key", "_run_length")
+
+    def __init__(self) -> None:
+        self._size = 0
+        self._key_acc = 0
+        self._last_key: int | None = None
+        self._run_length = 0
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+    def cost_delta(self, key: int, spec: FieldSpec) -> int:
+        """How many bytes adding `key` (with FieldSpec `spec`) would add."""
+        delta = 0
+        starts_new_run = self._last_key is None or key != self._last_key + 1
+        if starts_new_run:
+            skip_value = key - self._key_acc
+            if skip_value > 0:
+                delta += 1 + _width_bytes(skip_value)   # skip cmd + param
+            delta += 1 + 1                              # run cmd + 1-byte length param
+        else:
+            # Extending the current run: run-length parameter width might widen.
+            new_run_len = self._run_length + 1
+            new_w = _width_bytes(new_run_len)
+            old_w = _width_bytes(self._run_length)
+            if new_w != old_w:
+                delta += new_w - old_w
+        delta += spec.size                              # value bytes
+        return delta
+
+    def commit(self, key: int, spec: FieldSpec) -> int:
+        """Add `key` to the tracker state. Returns the new total size."""
+        if self._last_key is None or key != self._last_key + 1:
+            skip_value = key - self._key_acc
+            if skip_value > 0:
+                self._size += 1 + _width_bytes(skip_value)
+            self._size += 1 + 1
+            self._run_length = 1
+        else:
+            new_run_len = self._run_length + 1
+            new_w = _width_bytes(new_run_len)
+            old_w = _width_bytes(self._run_length)
+            if new_w != old_w:
+                self._size += new_w - old_w
+            self._run_length = new_run_len
+        self._size += spec.size
+        self._last_key = key
+        self._key_acc = key + 1
+        return self._size
+
+
 def _encode_value(value: int | bytes, spec: FieldSpec) -> bytes:
     if isinstance(value, (bytes, bytearray, memoryview)):
         if spec.size and len(value) != spec.size:
