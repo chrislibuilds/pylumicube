@@ -36,3 +36,7 @@ env/
 *.swp
 *.swo
 .DS_Store
+
+# Per-user secrets for scripts/digital_clock.py (template is checked in as
+# scripts/digital_clock_config.py.example).
+scripts/digital_clock_config.py
