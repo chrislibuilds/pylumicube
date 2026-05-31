@@ -1,10 +1,10 @@
 # credit: ported from the Abstract Foundry community script `lava_lamp.py`.
-"""Lava lamp animation for the LumiCube — native `pylumicube` API.
+"""Plasma animation for the LumiCube — native `pylumicube` API.
 
-3D lava-lamp effect: each of the 192 surface pixels samples 4D
-OpenSimplex noise at ``(x*scale, y*scale, z*scale, t*speed)``; the result
-is mapped to an HSV hue at full saturation/brightness and pushed to the
-cube.
+3D plasma effect (a lava-lamp / flowing-hue field): each of the 192
+surface pixels samples 4D OpenSimplex noise at
+``(x*scale, y*scale, z*scale, t*speed)``; the result is mapped to an HSV
+hue at full saturation/brightness and pushed to the cube.
 
 Differences vs. the upstream community-script version (which runs under
 `lumicube-run`'s compat shim) that make this version meaningfully
@@ -29,14 +29,14 @@ function and give a much bigger win — out of scope for the
 
 Run as a plain Python script:
 
-    uv run python scripts/lava_lamp.py
+    uv run python scripts/plasma.py
     # or, in an activated venv:
-    python scripts/lava_lamp.py
+    python scripts/plasma.py
 
 Also works under `lumicube-run` — `open_or_use_hosted` picks up the
 runner's already-open cube:
 
-    uv run lumicube-run scripts/lava_lamp.py
+    uv run lumicube-run scripts/plasma.py
 """
 
 from __future__ import annotations
@@ -52,10 +52,12 @@ import opensimplex
 from pylumicube.compat import get_hosted_cube, open_or_use_hosted
 from pylumicube.constants import SERIAL_DEVICE
 
-log = logging.getLogger("lava_lamp")
+log = logging.getLogger("plasma")
 
 
 # ----- Tuning knobs (match upstream `lava_lamp.py` defaults) -----
+# (kept under the original community-script's defaults to preserve the
+# look; rename was purely cosmetic.)
 
 SCALE = 0.10
 SPEED = 0.05
@@ -191,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
             print("\nstopped")
         return 0
 
-    parser = argparse.ArgumentParser(description="LumiCube lava lamp (native pylumicube API)")
+    parser = argparse.ArgumentParser(description="LumiCube plasma (native pylumicube API)")
     parser.add_argument("--port", default=SERIAL_DEVICE,
                         help=f"serial device (default {SERIAL_DEVICE})")
     parser.add_argument("--debug", action="store_true", help="verbose logging")

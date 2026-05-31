@@ -24,7 +24,7 @@ Java `foundry-daemon`.
 **Hardware modules**
 
 - [x] **LED matrix** — `SET_FIELDS` writes covering all 192 LEDs (3 frames). Exposed as the `lumicube-leds` CLI and `LumiCube.display`.
-- [x] **Upstream-script compat shim** — `pylumicube.compat` recreates the foundry-daemon globals (`cube`, `display`, `hsv_colour`, `noise_*`, colour constants, etc.). `lumicube-run script.py` execs a community script in that namespace; display-only scripts (rainbow, rain, binary_clock, conways_game_of_life, autumn_scene, land_grab, lava_lamp, ripples, scrolling_clock) run unchanged. Sensor / audio / screen modules are warn-and-no-op stubs until they land.
+- [x] **Upstream-script compat shim** — `pylumicube.compat` recreates the foundry-daemon globals (`cube`, `display`, `hsv_colour`, `noise_*`, colour constants, etc.). `lumicube-run script.py` execs a community script in that namespace; display-only scripts (rainbow, rain, binary_clock, conways_game_of_life, autumn_scene, land_grab, lava_lamp, ripples, scrolling_clock — all under `scripts/original/`) run unchanged. Sensor / audio / screen modules are warn-and-no-op stubs until they land.
 - [ ] **Microphone input** — `SUBSCRIBE_DEFAULT_FIELDS` + `PUBLISHED_FIELDS` telemetry plumbing, then expose `microphone.data`.
 - [ ] **Light sensor** — colour, proximity, and gesture readings from the `button_and_light_sensor` board (telemetry-driven, builds on microphone).
 - [ ] **Secondary LCD screen** — drive the `screen` module on the cube node. Forces the move from a hardcoded display schema to runtime `ENUMERATE_FIELDS` + direct-probe discovery (see [`PROTOCOL.md`](./PROTOCOL.md) §5.1).
@@ -61,7 +61,7 @@ you activating it:
 ```bash
 uv run pytest
 uv run lumicube-leds all FF0000
-uv run lumicube-run scripts/rainbow.py
+uv run lumicube-run scripts/original/rainbow.py
 ```
 
 ### Option B — classic `venv` + `pip`
@@ -86,7 +86,7 @@ commands are all on your `PATH`:
 ```bash
 pytest
 lumicube-leds all FF0000
-lumicube-run scripts/rainbow.py
+lumicube-run scripts/original/rainbow.py
 ```
 
 ### Option C — from PyPI (once released)
@@ -158,15 +158,16 @@ etc.) and `exec`s the given script in that namespace, so upstream
 work unchanged.
 
 ```bash
-# Display-only scripts — fully working today.
-lumicube-run scripts/rainbow.py
-lumicube-run scripts/binary_clock.py
-lumicube-run scripts/lava_lamp.py
-lumicube-run scripts/scrolling_clock.py    # uses the built-in font
+# Display-only scripts — fully working today (upstream community
+# scripts live under scripts/original/).
+lumicube-run scripts/original/rainbow.py
+lumicube-run scripts/original/binary_clock.py
+lumicube-run scripts/original/lava_lamp.py
+lumicube-run scripts/original/scrolling_clock.py    # uses the built-in font
 
 # Stop the script with Ctrl-C — the matrix is blanked on exit unless
 # you pass --no-clear.
-lumicube-run --no-clear scripts/rainbow.py
+lumicube-run --no-clear scripts/original/rainbow.py
 ```
 
 Sensor / audio / screen modules (`microphone`, `speaker`, `screen`,
@@ -175,26 +176,37 @@ stubs for now — scripts that only poke the LED matrix run end to end;
 scripts that read sensors or play sounds will print a one-time
 `RuntimeWarning` per attribute and silently skip those calls.
 
-### Native-API scripts (`scripts/digital_clock.py`)
+### Native-API scripts
 
-`scripts/digital_clock.py` is a "from scratch" example of a clock built
-against the native `pylumicube.LumiCube` API (no compat shim). It shows
-how to compute (x, y) → LED-index yourself and push frames via
-`Display.set_leds`. Run it as a plain Python script:
+The top-level `scripts/` directory ships two native-API examples:
+
+- `scripts/digital_clock.py` — a "from scratch" clock that shows how to
+  compute (x, y) → LED-index yourself and push frames via
+  `Display.set_leds`.
+- `scripts/plasma.py` — a 3D plasma / lava-lamp effect using 4D
+  OpenSimplex noise. Ported from the upstream community-script
+  `scripts/original/lava_lamp.py`, but with precomputed surface
+  geometry, vectorised HSV→RGB, and the async display path so the next
+  frame's compute overlaps the previous frame's wire push.
+
+Both are run as plain Python scripts:
 
 ```bash
 uv run python scripts/digital_clock.py
+uv run python scripts/plasma.py
 # or, in an activated venv:
 python scripts/digital_clock.py
+python scripts/plasma.py
 ```
 
-It also works under `lumicube-run` — the runner registers its open cube
-via `pylumicube.compat.get_hosted_cube()`, and the script picks that up
-through `open_or_use_hosted(port)` instead of opening a second serial
-connection:
+They also work under `lumicube-run` — the runner registers its open
+cube via `pylumicube.compat.get_hosted_cube()`, and the scripts pick
+that up through `open_or_use_hosted(port)` instead of opening a second
+serial connection:
 
 ```bash
 uv run lumicube-run scripts/digital_clock.py
+uv run lumicube-run scripts/plasma.py
 ```
 
 To make your own native-API script dual-mode-compatible, replace the
@@ -211,9 +223,13 @@ Standalone, the helper opens and tears down a fresh `LumiCube(port)`.
 Hosted by `lumicube-run`, it yields the runner's cube and leaves
 teardown to the runner.
 
-The optional weather feature uses `requests`, which is part of the
-`extras` install group (`pip install -e '.[extras]'` or
-`uv sync --extra extras`). To enable it, copy the example config and
+`digital_clock.py`'s optional weather feature uses `requests`, which is
+part of the `extras` install group (`pip install -e '.[extras]'` or
+`uv sync --extra extras`). `plasma.py` only needs `opensimplex` (a
+base-install runtime dependency) plus `numpy` (already a transitive dep
+through `opensimplex`).
+
+To enable digital_clock's weather feature, copy the example config and
 edit your OpenWeatherMap API key + city ID:
 
 ```bash
@@ -270,7 +286,7 @@ from pylumicube.compat import run_script
 
 # One-shot: open the cube and run a community script in the
 # foundry-daemon-compatible namespace.
-run_script('scripts/binary_clock.py')
+run_script('scripts/original/binary_clock.py')
 ```
 
 Or drive things yourself with the upstream helpers:
@@ -329,8 +345,10 @@ src/pylumicube/
         cli.py           # lumicube-run CLI
 
 tests/                   # offline pytest suite
-scripts/                 # upstream community scripts (run via lumicube-run)
-                         #   + native-API examples like digital_clock.py
+scripts/
+    digital_clock.py     # native-API clock example
+    plasma.py            # native-API 3D plasma effect
+    original/            # the 17 upstream community scripts, run via lumicube-run
 utilities/               # on-device debug + bring-up helpers
 PROTOCOL.md              # canonical protocol spec
 CHANGELOG.md             # versioned change history
@@ -339,15 +357,20 @@ LICENSE                  # GPL-3.0
 
 ## Scripts and utilities
 
-`scripts/` contains a mix of:
+`scripts/` is split between two kinds of programs:
 
-- **Upstream LumiCube community / user scripts** (e.g. `rainbow.py`,
-  `binary_clock.py`, `lava_lamp.py`) — written against the
-  foundry-daemon globals. Run with `lumicube-run <script.py>`.
-- **Native-API examples** like `digital_clock.py` — use
-  `pylumicube.LumiCube` directly and are launched as plain Python
-  scripts (`python scripts/digital_clock.py`). They depend on the
-  `[extras]` install group; see the CLI section above.
+- **Upstream LumiCube community / user scripts** under
+  `scripts/original/` (e.g. `rainbow.py`, `binary_clock.py`,
+  `lava_lamp.py`, `scrolling_clock.py`) — written against the
+  foundry-daemon globals. Run with
+  `lumicube-run scripts/original/<script.py>`.
+- **Native-API examples** at the top level (`scripts/digital_clock.py`,
+  `scripts/plasma.py`) — use `pylumicube.LumiCube` directly and are
+  launched as plain Python scripts
+  (`python scripts/<script.py>`). They also work under `lumicube-run`
+  via `pylumicube.compat.open_or_use_hosted`. The clock's optional
+  weather feature depends on the `[extras]` install group; see the CLI
+  section above.
 
 `utilities/` contains helper tools used during bring-up and reverse-
 engineering (require a connected cube):

@@ -419,8 +419,8 @@ daemon (`QueryMetadataTask.issueQuery`):
 
 The cube also accepts the simpler form `[skip k0][run-1][no inner skip]`
 (omitting the trailing `0x12 0x00 0x00`), and the minimum widths
-`0x11 k0` for `k0 ≤ 255` are fine too — `scripts/query_key.py` and
-`scripts/snapshot_hardware.py::build_query` both use the
+`0x11 k0` for `k0 ≤ 255` are fine too — `utilities/query_key.py` and
+`utilities/snapshot_hardware.py::build_query` both use the
 narrowest-width form.
 
 The response is a **RecursiveDictionary**: a single field at top-level key
@@ -449,7 +449,7 @@ next floor happens to equal `2 × k0`. Disambiguate by probing one key
 forward: under gap interpretation the response at `k0+1` still points
 at the same `next_floor` so its rel decreases by 1, under echo
 interpretation rel tracks the query and equals `k0+1`. Concrete
-algorithm in `scripts/snapshot_hardware.py::_classify` /
+algorithm in `utilities/snapshot_hardware.py::_classify` /
 `_resolve_floor`.
 
 For walking the schema this means **you cannot rely on the leading
@@ -657,7 +657,7 @@ The two UAVCAN nodes report their `GET_PREFERRED_NAME` as:
 - **`button_and_light_sensor`** (allocated ID 125) — sensor board. Owns
   `env_sensor`, `imu`, `light_sensor`, `microphone` controls, etc. No LEDs.
 
-On the `cube` node, what `scripts/snapshot_hardware.py` auto-walks via
+On the `cube` node, what `utilities/snapshot_hardware.py` auto-walks via
 `ENUMERATE_FIELDS` (2026-05-14 capture, in
 `ref_data/snapshot_hardware-output.txt`):
 
@@ -673,7 +673,7 @@ On the `cube` node, what `scripts/snapshot_hardware.py` auto-walks via
 |  7412 |    1 | `button_pressed`           | BOOL | 1    | buttons      |
 | 67413 |    1 | `rdp_level`                | UINT | 4    | (system)     |
 
-Direct probes by key (via `scripts/query_key.py`) also surface fields
+Direct probes by key (via `utilities/query_key.py`) also surface fields
 the walk steps over: `display.brightness` at **256** (UINT 1B, max
 100), and per earlier captures the other display fields
 (`panel_*` @ 257..261, `gamma_correction_*` @ 262..265). These exist on
@@ -768,7 +768,7 @@ A minimal Python daemon needs to do this on startup:
 The **"it works" milestone** for the Python implementation is: light the
 display from the `cube` node by writing its `led_colour` and `show`
 fields, and observe button presses via published-fields telemetry. The
-LED half is **verified working** as of 2026-05-10 (`scripts/probe_set_fields.py`,
+LED half is **verified working** as of 2026-05-10 (`utilities/probe_set_fields.py`,
 the `lumicube-leds` CLI, and `LumiCube.display.set_leds()` all produce
 real photons on the panel).
 
@@ -788,7 +788,7 @@ real photons on the panel).
    pending.
 3. **Field metadata `min_value` / `max_value` width for FLOAT and
    variable-size fields.** Bootstrap declares them as `UINT, size =
-   var`. `scripts/snapshot_hardware.py` parses them at the parent
+   var`. `utilities/snapshot_hardware.py` parses them at the parent
    field's `size` bytes if seen, defaulting to 1. Verified for
    fixed-size integral fields (e.g. `display.brightness` max_value=100,
    1-byte); behaviour for FLOAT and variable-size fields untested.
@@ -817,7 +817,7 @@ real photons on the panel).
 A realistic capture path: stop the Java daemon (`systemctl --user stop
 foundry-daemon.service`; if the user systemd manager isn't reachable in
 your shell, `export XDG_RUNTIME_DIR=/run/user/$(id -u)` first), then run
-the Python `scripts/probe_set_fields.py` which logs every TX/RX frame at
+the Python `utilities/probe_set_fields.py` which logs every TX/RX frame at
 the link layer.
 
 ---

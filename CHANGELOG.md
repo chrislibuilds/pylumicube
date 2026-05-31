@@ -37,11 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   semantics are now pinned by a unit test.
 
 ### Added
-- `scripts/lava_lamp.py` — native-API rewrite of the upstream community
-  script. Precomputes the 192 surface coordinates and their LED indices
-  at startup, replaces the per-pixel `colorsys.hsv_to_rgb` with a
-  vectorised numpy packer, and benefits from the new async display so
-  noise computation overlaps the previous frame's wire push.
+- `scripts/plasma.py` — native-API rewrite of the upstream community
+  `lava_lamp.py` script. Precomputes the 192 surface coordinates and
+  their LED indices at startup, replaces the per-pixel
+  `colorsys.hsv_to_rgb` with a vectorised numpy packer, and benefits
+  from the new async display so noise computation overlaps the previous
+  frame's wire push.
 - `scripts/digital_clock.py` — native-API example script (does not use
   the compat shim). Renders hours, minutes, and a filling-dot seconds
   animation, with an optional OpenWeatherMap temperature overlay.
